@@ -1,0 +1,77 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+
+<head>
+    <title>Kalman star watch</title>
+    <link href="/aspect/aspect.css" rel="stylesheet" type="text/css"
+        media="all" />
+    <style type="text/css">
+        tr.pink-bkg {
+            background-color: #f88
+        }
+
+        table {
+            border-width: 1px;
+            border-spacing: 0px;
+            border-style: outset;
+            border-color: gray;
+            border-collapse: separate;
+        }
+
+        table th,
+        td {
+            border-width: 1px;
+            padding: 1px 5px 1px 5px;
+            border-style: solid;
+            border-color: gray;
+        }
+    </style>
+</head>
+
+<body>
+
+<TABLE BORDER=1 style="width:100%">
+<TR>
+<TH>Schedule</TH>
+<TH>Starcheck</TH>
+<TH>Date or RLTT</TH>
+<TH>Schedule Stop</TH>
+<TH>Event</TH>
+<TH style="width:5%">Params</TH>
+<TH>Event</TH>
+<TH>SOT MP</TH>
+</TR>
+
+{% for entry in entries %}
+<TR>
+<TD>{{ entry.get('products', '') }}</TD>
+<TD align='center'><A HREF="{{ entry.get('starcheck_url')}}" target="_blank">{{ entry.get('products', '') }}</A></TD>
+<TD align="right">{{ entry.get('date', '') }}</TD>
+<TD align="right" style='color:{{entry.get('ss_color')}}'>{{ entry.get('sched_stop', '') }}</TD>
+<TD>{{ entry.get('Event', '') }}</TD>
+<TD>{{ entry.get('Params', '') }}</TD>
+<TD>{{ entry.get('Comment', '') }}</TD>
+<TD>{{ entry.get('mp_comment', '') }}</TD>
+</TR>
+{% endfor %}
+</TABLE>
+
+The script to make this page is in
+<a
+    href="https://github.com/sot/schedule_view3">
+    https://github.com/sot/schedule_view3</a>.
+
+<br></br>
+
+The pages from the previous system are still available but no longer up-to-date at:
+<a
+    href="https://cxc.harvard.edu/mta/ASPECT/schedules/schedules_all.html">
+    https://cxc.harvard.edu/mta/ASPECT/schedules/schedules_all.html</a>.
+
+<br></br>
+
+<!--footer end-->
+
+</body>
+
+</html>
