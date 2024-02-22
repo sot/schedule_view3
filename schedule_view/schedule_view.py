@@ -169,7 +169,9 @@ def main(sys_argv=None):
         entries=entries[::-1],
     )
 
+    Path(opt.out_dir).mkdir(exist_ok=True, parents=True)
     outfile = Path(opt.out_dir) / "index.html"
+
     with open(outfile, "w") as fh:
         fh.write(html)
 
