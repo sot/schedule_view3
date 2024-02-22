@@ -1,0 +1,25 @@
+name: Upload Ska Package
+on:
+  workflow_call:
+    inputs:
+      channel:
+        description: name of conda channel to upload to
+        required: false
+        type: string
+        default: test
+jobs:
+  update-channel:
+    runs-on: head
+    name: Update Conda Channel
+    steps:
+      - name: Get linux package
+        uses: actions/download-artifact@v2
+        with:
+          name: conda-package
+          path: package
+      - name: Update channel
+        run: |
+          rsync -av package/ ${CONDA_CHANNEL_DIR}
+          conda index --no-progress ${CONDA_CHANNEL_DIR}
+        env:
+          CONDA_CHANNEL_DIR: /proj/sot/ska/www/ASPECT/ska3-conda/${{ inputs.channel }}
