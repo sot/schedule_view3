@@ -6,10 +6,6 @@
     <link href="/aspect/aspect.css" rel="stylesheet" type="text/css"
         media="all" />
     <style type="text/css">
-        tr.pink-bkg {
-            background-color: #f88
-        }
-
         table {
             border-width: 1px;
             border-spacing: 0px;
@@ -25,6 +21,10 @@
             border-style: solid;
             border-color: gray;
         }
+
+        tr:nth-of-type(odd) {
+            background-color:#ccc;
+        }
     </style>
 </head>
 
@@ -39,7 +39,7 @@
 <TH>Event</TH>
 <TH style="width:5%">Params</TH>
 <TH>Event</TH>
-<TH>SOT MP</TH>
+<TH>SOT MP Comments</TH>
 </TR>
 
 {% for entry in entries %}
