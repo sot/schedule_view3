@@ -154,6 +154,11 @@ def main(sys_argv=None):
         # Update params to add whitespace that can be split
         if "Params" in entry and not pmask:
             entry["Params"] = entry["Params"].replace(",", ", ")
+
+        # Hide params for command events on this public page
+        if row["Event"] in ["Command", "Command not run"]:
+            entry["Params"] = "--"
+
         entry["source"] = "cmd_evt"
         events_flight_list.append(entry)
     entries.extend(events_flight_list)
