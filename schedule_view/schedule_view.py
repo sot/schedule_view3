@@ -119,7 +119,7 @@ def main(sys_argv=None):
             else:
                 entry["status"] = ""
                 entry["ss_color"] = "grey"
-            entries.append(entry)
+        entries.append(entry)
 
     for entry in events_flight:
         if entry["Event"] in ["Load not run", "Observing not run"]:
