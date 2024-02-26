@@ -24,7 +24,13 @@ def get_sched_files():
 
     This tool is only useful for viewing schedules in the RLTT era, so
     there's a small optimization that this only fetches files from cycle 20
-    on. This will only succeed on HEAD systems with access to /proj/web-icxc
+    on. This will only succeed on HEAD systems with access to /proj/web-icxc.
+
+    Returns
+    -------
+    files : list
+        A list of Path objects representing the schedule files.
+
     """
     files = []
     top_level = "/proj/web-icxc/htdocs/mp/html/"
@@ -38,6 +44,17 @@ def get_sched_files():
 def get_mp_scheds(files):
     """
     Get an astropy table of the entries from the SOT MP schedule tables.
+
+    Parameters
+    ----------
+    files : list
+        A list of Path objects representing the schedule files.
+
+    Returns
+    -------
+    out : astropy.table.Table
+        A table with the columns "Week", "Version", and "Comment" with the
+        entries from the SOT MP schedule tables.
     """
     dat = []
     for sched_file in files:
@@ -62,6 +79,17 @@ def get_mp_scheds(files):
 def get_mp_comment(week, mp_scheds):
     """
     Get any SOT MP comments on week.
+
+    Parameters
+    ----------
+    week : str
+        The week string, e.g. "FEB2324A"
+    mp_scheds : astropy.table.Table
+        The table of SOT MP schedules from get_mp_scheds.
+
+    Returns
+    -------
+    comment : str or None
     """
     mp_week = week[0:7]
     mp_match = (mp_scheds["Week"] == mp_week) & (mp_scheds["Version"] == week[7])
@@ -72,6 +100,16 @@ def get_mp_comment(week, mp_scheds):
 def get_starcheck_url(week):
     """
     Construct URL for Flight starcheck output for week.
+
+    Parameters
+    ----------
+    week : str
+        The week string, e.g. "FEB2324A"
+
+    Returns
+    -------
+    url : str
+
     """
     week_str = load_name_to_mp_dir(week)
     return f"https://icxc.harvard.edu/mp/mplogs{week_str}starcheck.html"
