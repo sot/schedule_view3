@@ -14,7 +14,7 @@ TEMPLATE = Path(__file__).parent / "index_template.html"
 def get_options():
     parser = argparse.ArgumentParser(description="View schedule")
     parser.add_argument("--start", type=str, help="Start time")
-    parser.add_argument("--out-dir", type=str, help="Output directory", default=".")
+    parser.add_argument("--outdir", type=str, help="Output directory", default=".")
     return parser
 
 
@@ -239,8 +239,8 @@ def main(sys_argv=None):
         entries=entries[::-1],
     )
 
-    Path(opt.out_dir).mkdir(exist_ok=True, parents=True)
-    outfile = Path(opt.out_dir) / "index.html"
+    Path(opt.outdir).mkdir(exist_ok=True, parents=True)
+    outfile = Path(opt.outdir) / "index.html"
 
     with open(outfile, "w") as fh:
         fh.write(html)
