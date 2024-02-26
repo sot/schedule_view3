@@ -1,3 +1,4 @@
+import argparse
 from pathlib import Path
 
 import kadi.commands as kc
@@ -5,13 +6,12 @@ import numpy as np
 from astropy.table import Table, vstack
 from jinja2 import Template
 from kadi import paths
+from mica.utils import load_name_to_mp_dir
 
 TEMPLATE = Path(__file__).parent / "index_template.html"
 
 
 def get_options():
-    import argparse
-
     parser = argparse.ArgumentParser(description="View schedule")
     parser.add_argument("--start", type=str, help="Start time")
     parser.add_argument("--out-dir", type=str, help="Output directory", default=".")
@@ -19,6 +19,13 @@ def get_options():
 
 
 def get_sched_files():
+    """
+    Get a list of the files with SOT MP schedules.
+
+    This tool is only useful for viewing schedules in the RLTT era, so
+    there's a small optimization that this only fetches files from cycle 20
+    on. This will only succeed on HEAD systems with access to /proj/web-icxc
+    """
     files = []
     top_level = "/proj/web-icxc/htdocs/mp/html/"
     for glob in ["schedules_ao2?.html", "schedules.html"]:
@@ -29,6 +36,9 @@ def get_sched_files():
 
 
 def get_mp_scheds(files):
+    """
+    Get an astropy table of the entries from the SOT MP schedule tables.
+    """
     dat = []
     for sched_file in files:
         tab = Table.read(sched_file, header_start=0, data_start=1)
@@ -50,6 +60,9 @@ def get_mp_scheds(files):
 
 
 def get_mp_comment(week, mp_scheds):
+    """
+    Get any SOT MP comments on week.
+    """
     mp_week = week[0:7]
     mp_match = (mp_scheds["Week"] == mp_week) & (mp_scheds["Version"] == week[7])
     if np.any(mp_match):
@@ -57,8 +70,9 @@ def get_mp_comment(week, mp_scheds):
 
 
 def get_starcheck_url(week):
-    from mica.utils import load_name_to_mp_dir
-
+    """
+    Construct URL for Flight starcheck output for week.
+    """
     week_str = load_name_to_mp_dir(week)
     return f"https://icxc.harvard.edu/mp/mplogs{week_str}starcheck.html"
 
@@ -67,6 +81,7 @@ def main(sys_argv=None):
     opt = get_options().parse_args(sys_argv)
     start_time = opt.start or "2020:110"
 
+    # Get kadi dynamic commands from start_time
     cmds = kc.commands.get_cmds(start=start_time)
     ok = (
         (cmds["type"] == "LOAD_EVENT")
@@ -76,18 +91,25 @@ def main(sys_argv=None):
     cmds = cmds[ok]
     cmds.fetch_params()
 
+    # Get a sorted list of the approved/run loads
     _, idx = np.unique(cmds["source"], return_index=True)
     run_loads = list(cmds["source"][np.sort(idx)])
 
+    # Get the command events from the sheet
     path_flight = paths.CMD_EVENTS_PATH()
     events_flight = Table.read(path_flight)
     events_flight.rename_column("Date", "date")
     ok = events_flight["date"] > start_time
     events_flight = events_flight[ok]
 
+    # Get SOT MP comments
     sched_files = get_sched_files()
     mp_dat = get_mp_scheds(sched_files)
 
+    # For the set of approved loads, add a dictionary for each to a list of entries for the
+    # output table. Check if there are command events / nonload commands between rltt and
+    # schedule_stop to get a quick idea about if the schedule was interrupted, and if so
+    # update a key in the dictionary with that information.
     entries = []
     for week in run_loads:
         entry = {"products": week}
@@ -121,6 +143,10 @@ def main(sys_argv=None):
                 entry["ss_color"] = "grey"
         entries.append(entry)
 
+    # For each entry from the command events sheet, if that entry is a Load not run
+    # or Observing not run entry, use that to update the entry already in entries
+    # for that week/schedule.  If for any reason there is a Load or Observing not
+    # run without a matching cmd, put that in the list of entries too.
     for entry in events_flight:
         if entry["Event"] in ["Load not run", "Observing not run"]:
             # Is there already an entry for this week? if so, update in place
@@ -145,6 +171,8 @@ def main(sys_argv=None):
             if not has_entry:
                 entries.append(week_entry)
 
+    # For the remaining entries, do a little bit of munging to add space to the Params
+    # so they will wrap better on the HTML page, and save them to the entries list too.
     events_flight_list = []
     params_mask = events_flight["Params"].mask
     for row, pmask in zip(events_flight, params_mask):
@@ -159,12 +187,15 @@ def main(sys_argv=None):
         events_flight_list.append(entry)
     entries.extend(events_flight_list)
 
+    # Update the entries with defined weeks to have links to starcheck.
     for entry in entries:
         if "products" in entry:
             entry["starcheck_url"] = get_starcheck_url(entry["products"])
 
+    # Sort by date
     entries.sort(key=lambda x: x["date"])
 
+    # Make HTML
     template = Template(open(TEMPLATE).read())
     html = template.render(
         entries=entries[::-1],
