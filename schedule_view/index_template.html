@@ -33,7 +33,6 @@
 <TABLE BORDER=1 style="width:100%">
 <TR>
 <TH>Schedule</TH>
-<TH>Starcheck</TH>
 <TH>Date or RLTT</TH>
 <TH>Schedule Stop</TH>
 <TH>Event</TH>
@@ -44,7 +43,6 @@
 
 {% for entry in entries %}
 <TR>
-<TD>{{ entry.get('products', '') }}</TD>
 <TD align='center'><A HREF="{{ entry.get('starcheck_url')}}" target="_blank">{{ entry.get('products', '') }}</A></TD>
 <TD align="right">{{ entry.get('date', '') }}</TD>
 <TD align="right" style='color:{{entry.get('ss_color')}}'>{{ entry.get('sched_stop', '') }}</TD>
