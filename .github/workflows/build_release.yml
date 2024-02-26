@@ -1,0 +1,175 @@
+name: Conda build release
+on:
+  release:
+    types: [released, prereleased]
+
+jobs:
+  sanity_check:
+    runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.sanity_check.outputs.packages }}
+      prerelease: ${{ steps.sanity_check.outputs.prerelease }}
+      overwrite_flag: ${{ steps.sanity_check.outputs.overwrite_flag }}
+    steps:
+    - name: Checkout skare3
+      uses: actions/checkout@v2
+      with:
+          path: skare3
+    - name: Fetch Skare3 Tools
+      uses: actions/checkout@v2
+      with:
+        repository: sot/skare3_tools
+        ref: master
+        path: skare3_tools
+    - id: sanity_check
+      run: |
+        sudo pip3 install setuptools
+        sudo pip3 install -r ./skare3_tools/requirements.txt
+        sudo pip3 install ./skare3_tools
+        skare3-release-check --skare3-path ./skare3 --version $GITHUB_REF
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_API_TOKEN: ${{ secrets.CHANDRA_XRAY_TOKEN }}
+
+  build-linux:
+    runs-on: ubuntu-latest
+    name: Build on Linux
+    needs: [sanity_check]
+    steps:
+    - name: Login to GitHub Package Registry
+      run: docker login docker.pkg.github.com -u $GITHUB_ACTOR -p ${{ secrets.GITHUB_TOKEN }}
+    - name: Pull Docker image
+      run: docker pull docker.pkg.github.com/sot/skare3/centos7-builder:latest
+    - name: Build
+      id: build
+      run: |
+        echo "Packages: ${{needs.sanity_check.outputs.packages}}"
+        echo "Override flag: ${{needs.sanity_check.outputs.overwrite_flag}}"
+        for package in ${{needs.sanity_check.outputs.packages}}; do
+          docker run --rm  --name builder -v $GITHUB_WORKSPACE:/github/workspace -w /github/workspace \
+                 -e CONDA_PASSWORD -e GIT_USERNAME -e GIT_PASSWORD \
+                 docker.pkg.github.com/sot/skare3/centos7-builder:latest ${package} \
+                 --tag ${GITHUB_SHA} --skare3-branch ${GITHUB_SHA} ${{needs.sanity_check.outputs.overwrite_flag}};
+        done;
+        touch builds/linux-64/.empty
+        touch builds/noarch/.empty
+      env:
+        CONDA_PASSWORD: ${{ secrets.CONDA_PASSWORD }}
+        GIT_USERNAME: chandra-xray
+        GIT_PASSWORD: ${{ secrets.CHANDRA_XRAY_TOKEN }}
+        GIT_ASKPASS: /home/aca/git_pass.py
+    - name: Save packages
+      uses: actions/upload-artifact@v2
+      with:
+        name: conda-package
+        path: |
+          builds/linux-64/
+          builds/noarch/
+          !builds/*/*repodata*
+          !builds/*/index.html
+
+  build-other:
+    runs-on: ${{ matrix.os }}-latest
+    name: Build on ${{ matrix.os }}
+    needs: [sanity_check]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["macos", "windows"]
+    steps:
+    - name: Fetch Skare3-tools
+      uses: actions/checkout@v2
+      with:
+        repository: sot/skare3_tools
+        ref: master
+        path: skare3_tools
+    - uses: sot/setup-miniconda@v2
+      with:
+        miniconda-version: "py38_4.8.3"
+        python-version: "3.8"
+        channels: https://ska:${{ secrets.CONDA_PASSWORD }}@cxc.cfa.harvard.edu/mta/ASPECT/ska3-conda/shiny
+    - name: Build Dependencies
+      shell: bash -l -e {0}
+      run: conda install setuptools_scm gitpython conda-build jinja2 pyyaml python=3.8 numpy packaging
+    - name: Build Package
+      shell: bash -l -e {0}
+      run: |
+        echo "Packages: ${{needs.sanity_check.outputs.packages}}"
+        echo "Override flag: ${{needs.sanity_check.outputs.overwrite_flag}}"
+        for package in ${{needs.sanity_check.outputs.packages}}; do
+          python skare3_tools/skare3_tools/scripts/build.py ${package} \
+          --arch-specific --tag ${GITHUB_SHA} --skare3-branch ${GITHUB_SHA} ${{needs.sanity_check.outputs.overwrite_flag}};
+        done;
+      env:
+        CONDA_PASSWORD: ${{ secrets.CONDA_PASSWORD }}
+        GIT_USERNAME: chandra-xray
+        GIT_ASKPASS: ${{ github.workspace }}/skare3_tools/actions/build/files/git_pass.py
+        GIT_PASSWORD: ${{ secrets.CHANDRA_XRAY_TOKEN }}
+    - name: Save package
+      uses: actions/upload-artifact@v2
+      with:
+        name: conda-package
+        path: |
+          builds/noarch/
+          builds/osx-64/
+          builds/win-64/
+          !builds/*/*repodata*
+          !builds/*/index.html
+
+  update-channel:
+    runs-on: head
+    name: Update Conda Channel
+    needs: [build-linux, build-other]
+    steps:
+      - name: Get packages
+        uses: actions/download-artifact@v2
+        with:
+          name: conda-package
+          path: package
+      - name: Update channel
+        run: |
+          rsync -a package/ ${CONDA_CHANNEL_DIR}
+          conda index ${CONDA_CHANNEL_DIR}
+        env:
+          CONDA_CHANNEL_DIR: /proj/sot/ska/www/ASPECT/ska3-conda/test
+
+  regression-test:
+    runs-on: head
+    name: Regression Tests
+    needs: [sanity_check, update-channel]
+    strategy:
+      matrix:
+        package: [ska3-flight, ska3-matlab]
+    steps:
+      - name: Fetch ska_testr
+        uses: actions/checkout@v2
+        with:
+          repository: sot/ska_testr
+          ref: master
+          path: ska_testr
+      - name: Regression Tests
+        if: contains(needs.sanity_check.outputs.packages, matrix.package) && (matrix.package == 'ska3-flight' || !contains(needs.sanity_check.outputs.packages, 'ska3-flight'))
+        run: |
+          RELEASE_TAG=`basename "$GITHUB_REF"`
+          conda create -y -n ${{ matrix.package }}-${RELEASE_TAG} --override-channels \
+                -c https://ska:${CONDA_PASSWORD}@cxc.cfa.harvard.edu/mta/ASPECT/ska3-conda/test \
+                -c https://ska:${CONDA_PASSWORD}@cxc.cfa.harvard.edu/mta/ASPECT/ska3-conda/masters  \
+                -c https://ska:${CONDA_PASSWORD}@cxc.cfa.harvard.edu/mta/ASPECT/ska3-conda/flight \
+                ${{ matrix.package }}==${RELEASE_TAG}
+          source activate ${{ matrix.package }}-${RELEASE_TAG}
+          mamba install -y --override-channels \
+                -c https://ska:${CONDA_PASSWORD}@cxc.cfa.harvard.edu/mta/ASPECT/ska3-conda/test \
+                -c https://ska:${CONDA_PASSWORD}@cxc.cfa.harvard.edu/mta/ASPECT/ska3-conda/masters  \
+                -c https://ska:${CONDA_PASSWORD}@cxc.cfa.harvard.edu/mta/ASPECT/ska3-conda/flight \
+                ska3-perl
+          ln -s /proj/sot/ska3/test/data $CONDA_PREFIX/data
+          export SKA=$CONDA_PREFIX
+          run_testr --root ./ska_testr --outputs-dir /export/jgonzale/ska_testr/release_tests
+          skare3-test-results --stream releases --tag head /export/jgonzale/ska_testr/release_tests/logs/last
+          # add test result report to PR description
+        env:
+          CONDA_PASSWORD: ${{ secrets.CONDA_PASSWORD }}
+          SKA: /proj/sot/ska
+          SYBASE_OCS: OCS-16_0
+          SYBASE: /soft/SYBASE16.0
+          LD_LIBRARY_PATH: /soft/SYBASE16.0/OCS-16_0/lib
