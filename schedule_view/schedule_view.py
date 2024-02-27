@@ -115,9 +115,20 @@ def get_starcheck_url(week):
     return f"https://icxc.harvard.edu/mp/mplogs{week_str}starcheck.html"
 
 
-def main(sys_argv=None):
-    opt = get_options().parse_args(sys_argv)
-    start_time = opt.start or "2020:110"
+def get_page_entries(start_time):
+    """
+    Get the entries for the schedule view page.
+
+    Parameters
+    ----------
+    start_time : CxoTime or compatible str
+        The start time for the list of cmds and events to be considered.
+
+    Returns
+    -------
+    entries : list
+        A list of dictionaries with the keys including "date", "products", "mp_comment".
+    """
 
     # Get kadi dynamic commands from start_time
     cmds = kc.commands.get_cmds(start=start_time)
@@ -232,6 +243,15 @@ def main(sys_argv=None):
 
     # Sort by date
     entries.sort(key=lambda x: x["date"])
+
+    return entries
+
+
+def main(sys_argv=None):
+    opt = get_options().parse_args(sys_argv)
+    start_time = opt.start or "2020:110"
+
+    entries = get_page_entries(start_time)
 
     # Make HTML
     template = Template(open(TEMPLATE).read())
