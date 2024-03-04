@@ -59,7 +59,10 @@ def get_mp_scheds(files):
     dat = []
     for sched_file in files:
         tab = Table.read(sched_file, header_start=0, data_start=1)
-
+        # If all the comments are empty or masked, replace with emtpy string
+        if np.all(tab["Comment"].mask):
+            tab.remove_column("Comment")
+            tab["Comment"] = ""
         week_mask = tab["Week"].mask
         week_name = None
         for row, ismasked in zip(tab, week_mask):
