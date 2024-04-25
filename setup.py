@@ -12,7 +12,7 @@ setup(
     author="Jean Connelly",
     description="Show schedules and events in a web page",
     author_email="jconnelly@cfa.harvard.edu",
-    url="https://sot.github.io/schedule_view",
+    url="https://sot.github.io/schedule_view3",
     use_scm_version=True,
     setup_requires=["setuptools_scm", "setuptools_scm_git_archive"],
     zip_safe=False,
