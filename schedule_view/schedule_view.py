@@ -134,7 +134,7 @@ def get_page_entries(start_time):
     """
 
     # Get kadi dynamic commands from start_time
-    cmds = kc.commands.get_cmds(start=start_time)
+    cmds = kc.get_cmds(start=start_time)
     ok = (
         (cmds["type"] == "LOAD_EVENT")
         & (cmds["tlmsid"] == "None")
