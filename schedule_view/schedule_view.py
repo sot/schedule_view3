@@ -180,12 +180,17 @@ def get_page_entries(start_time):
         if sst_cmd is not None:
             # the date of the schedule stop time is the later of the sst date or
             # the original sst
-            sst_date = sst_cmd["params"].get("scheduled_stop_time_orig", sst_cmd["date"])
+            sst_date = sst_cmd["params"].get(
+                "scheduled_stop_time_orig", sst_cmd["date"]
+            )
             entry["sched_stop"] = sst_date
         if "rltt" in entry and "sched_stop" in entry:
-            other_cmds = cmds[(cmds["date"] > entry["rltt"]) & (cmds["date"] < entry["sched_stop"])]
+            other_cmds = cmds[
+                (cmds["date"] > entry["rltt"]) & (cmds["date"] < entry["sched_stop"])
+            ]
             other_events = events_flight[
-                (events_flight["date"] > entry["rltt"]) & (events_flight["date"] < entry["sched_stop"])
+                (events_flight["date"] > entry["rltt"])
+                & (events_flight["date"] < entry["sched_stop"])
             ]
             if len(other_cmds) == 0 and len(other_events) == 0:
                 entry["status"] = "Ran nominally"
