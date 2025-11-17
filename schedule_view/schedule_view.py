@@ -178,8 +178,10 @@ def get_page_entries(start_time):
         entry["date"] = rltt_cmd["date"]
         sst_cmd = cmds_week.get_scheduled_stop_time_cmd()
         if sst_cmd is not None:
-            # the date of the schedule stop time is the later of the sst date or
-            # the original sst
+            # If scheduled_stop_time_orig param exists, use that, otherwise
+            # use the date of the scheduled_stop_time command.  This code should
+            # work with commands that pre-date https://github.com/sot/kadi/pull/364
+            # and with commands after that PR (which introduced the scheduled_stop_time_orig param).
             sst_date = sst_cmd["params"].get(
                 "scheduled_stop_time_orig", sst_cmd["date"]
             )
