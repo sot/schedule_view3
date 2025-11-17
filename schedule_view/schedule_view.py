@@ -326,7 +326,7 @@ def get_page_entries(start_time):
     for entry in entries:
         if "products" in entry:
             entry["mp_url"] = (
-                f"https://icxc.harvard.edu/mp/schedules/cycle{entry["cycle"]}/{entry["products"]}.html"
+                f"https://icxc.harvard.edu/mp/schedules/cycle{entry['cycle']}/{entry['products']}.html"
             )
             entry["starcheck_url"] = get_starcheck_url(entry["products"])
             entry["fot_week_url"] = get_fot_week_url(entry["products"])
