@@ -120,8 +120,6 @@ def get_mp_cycle(week, mp_scheds):
     mp_match = (mp_scheds["Week"] == mp_week) & (mp_scheds["Version"] == week[7])
     if np.any(mp_match):
         return mp_scheds[mp_match]["cycle_number"][0]
-    else:
-        raise ValueError
 
 
 def get_mp_comment(week, mp_scheds):
