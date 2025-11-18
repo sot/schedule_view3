@@ -75,10 +75,7 @@ def get_mp_scheds(files):
     for sched_file in files:
         # First I want to read the cycle name which can be found in the first <H1> tag
         # like "<h1 align="center"> AO26 CXC Observing Schedules </h1>"
-        html = sched_file.read_text()
-        cycle_number = extract_cycle_number(html)
         tab = Table.read(sched_file, header_start=0, data_start=1)
-        tab["cycle_number"] = cycle_number
         # If all the comments are empty or masked, replace with emtpy string
         if np.all(tab["Comment"].mask):
             tab.remove_column("Comment")
@@ -98,7 +95,6 @@ def get_mp_scheds(files):
         h1_text = extract_h1_text(html)
         cycle_number = extract_cycle_number(h1_text)
         tab["cycle_number"] = cycle_number
-
         # Just keep the comments the week and cycle_number, and flip sort so it is ascending
         dat.append(tab["Week", "Version", "cycle_number", "Comment"][::-1])
     out = vstack(dat)
@@ -227,11 +223,11 @@ def get_page_entries(start_time):
     ok = events_flight["date"] > start_time
     events_flight = events_flight[ok]
 
-    # Get SOT MP comments
+    # Get SOT MP comments and weeks
     sched_files = get_sched_files()
     mp_dat = get_mp_scheds(sched_files)
 
-    # For the set of approved loads, add a dictionary for each to a list of entries for the
+    # For the set of run loads, add a dictionary for each to a list of entries for the
     # output table. Check if there are command events / nonload commands between rltt and
     # schedule_stop to get a quick idea about if the schedule was interrupted, and if so
     # update a key in the dictionary with that information.
@@ -241,9 +237,7 @@ def get_page_entries(start_time):
         mp_comment = get_mp_comment(week, mp_dat)
         if mp_comment is not None:
             entry["mp_comment"] = mp_comment
-        cycle = get_mp_cycle(week, mp_dat)
-        if cycle is not None:
-            entry["cycle"] = cycle
+        entry["cycle"] = get_mp_cycle(week, mp_dat)
         cmds_week = cmds[cmds["source"] == week]
         rltt_cmd = cmds_week.get_rltt_cmd()
         if rltt_cmd is None:
@@ -297,7 +291,7 @@ def get_page_entries(start_time):
                     "products": entry["Params"],
                     "Event": entry["Event"],
                     "Comment": entry["Comment"],
-                    "cycle": entry.get("cycle"),
+                    "cycle": get_mp_cycle(entry["Params"], mp_dat),
                 }
             )
             mp_comment = get_mp_comment(entry["Params"], mp_dat)
@@ -325,9 +319,10 @@ def get_page_entries(start_time):
     # Update the entries with defined weeks to have links to starcheck.
     for entry in entries:
         if "products" in entry:
-            entry["mp_url"] = (
-                f"https://icxc.harvard.edu/mp/schedules/cycle{entry['cycle']}/{entry['products']}.html"
-            )
+            if entry["cycle"] is not None:
+                entry["mp_url"] = (
+                    f"https://icxc.harvard.edu/mp/schedules/cycle{entry['cycle']}/{entry['products']}.html"
+                )
             entry["starcheck_url"] = get_starcheck_url(entry["products"])
             entry["fot_week_url"] = get_fot_week_url(entry["products"])
 
