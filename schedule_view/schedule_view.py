@@ -168,25 +168,31 @@ def get_page_entries(start_time):
         mp_comment = get_mp_comment(week, mp_dat)
         if mp_comment is not None:
             entry["mp_comment"] = mp_comment
-        rltt_match = (cmds["source"] == week) & (
-            cmds["params"] == {"event_type": "RUNNING_LOAD_TERMINATION_TIME"}
-        )
-        if any(rltt_match):
-            rltt = cmds["date"][rltt_match][0]
-            entry["rltt"] = rltt
-            entry["date"] = rltt
-        else:
+        cmds_week = cmds[cmds["source"] == week]
+        rltt_cmd = cmds_week.get_rltt_cmd()
+        if rltt_cmd is None:
+            # This should just happen in the case when the start time is after rltt
+            # for the first "source" in run_loads
             continue
-        ss_match = (cmds["source"] == week) & (
-            cmds["params"] == {"event_type": "SCHEDULED_STOP_TIME"}
-        )
-        if any(ss_match):
-            ss = cmds["date"][ss_match][0]
-            entry["sched_stop"] = ss
+        entry["rltt"] = rltt_cmd["date"]
+        entry["date"] = rltt_cmd["date"]
+        sst_cmd = cmds_week.get_scheduled_stop_time_cmd()
+        if sst_cmd is not None:
+            # If scheduled_stop_time_orig param exists, use that, otherwise
+            # use the date of the scheduled_stop_time command.  This code should
+            # work with commands that pre-date https://github.com/sot/kadi/pull/364
+            # and with commands after that PR (which introduced the scheduled_stop_time_orig param).
+            sst_date = sst_cmd["params"].get(
+                "scheduled_stop_time_orig", sst_cmd["date"]
+            )
+            entry["sched_stop"] = sst_date
         if "rltt" in entry and "sched_stop" in entry:
-            other_cmds = cmds[(cmds["date"] > rltt) & (cmds["date"] < ss)]
+            other_cmds = cmds[
+                (cmds["date"] > entry["rltt"]) & (cmds["date"] < entry["sched_stop"])
+            ]
             other_events = events_flight[
-                (events_flight["date"] > rltt) & (events_flight["date"] < ss)
+                (events_flight["date"] > entry["rltt"])
+                & (events_flight["date"] < entry["sched_stop"])
             ]
             if len(other_cmds) == 0 and len(other_events) == 0:
                 entry["status"] = "Ran nominally"
