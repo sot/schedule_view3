@@ -73,8 +73,6 @@ def get_mp_scheds(files):
 
     dat = []
     for sched_file in files:
-        # First I want to read the cycle name which can be found in the first <H1> tag
-        # like "<h1 align="center"> AO26 CXC Observing Schedules </h1>"
         tab = Table.read(sched_file, header_start=0, data_start=1)
         # If all the comments are empty or masked, replace with emtpy string
         if np.all(tab["Comment"].mask):
