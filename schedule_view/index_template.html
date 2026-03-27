@@ -33,6 +33,8 @@
 <TABLE BORDER=1 style="width:100%">
 <TR>
 <TH>Schedule</TH>
+<TH>FOT Week</TH>
+<TH>Starcheck</TH>
 <TH>Date or RLTT</TH>
 <TH>Schedule Stop</TH>
 <TH>Event</TH>
@@ -43,7 +45,16 @@
 
 {% for entry in entries %}
 <TR>
-<TD align='center'><A HREF="{{ entry.get('starcheck_url')}}" target="_blank">{{ entry.get('products', '') }}</A></TD>
+
+{% if entry.get('products') %}
+    <TD align='center'><A HREF="{{ entry.get('mp_url')}}" target="_blank">{{ entry.get('products', '') }}</A></TD>
+    <TD align='center'><A HREF="{{ entry.get('fot_week_url')}}" target="_blank">FOT</A></TD>
+    <TD align='center'><A HREF="{{ entry.get('starcheck_url')}}" target="_blank">SC</A></TD>
+{% else %}
+    <TD align='center'></TD>
+    <TD align='center'></TD>
+    <TD align='center'></TD>
+{% endif %}
 <TD align="right">{{ entry.get('date', '') }}</TD>
 <TD align="right" style='color:{{entry.get('ss_color')}}'>{{ entry.get('sched_stop', '') }}</TD>
 <TD>{{ entry.get('Event', '') }}</TD>
