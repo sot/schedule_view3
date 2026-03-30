@@ -346,7 +346,7 @@ def write_cycle_map(mp_scheds, outfile):
     ok = [bool(re.match(r"^[A-Za-z]$", str(v))) for v in out["Version"]]
     out = out[ok]
     out["load_name"] = [w + v for w, v in zip(out["Week"], out["Version"])]
-    out = out["cycle_number", "load_name"]
+    out = out["load_name", "cycle_number"]
     out.write(outfile, format="csv", overwrite=True)
 
 
