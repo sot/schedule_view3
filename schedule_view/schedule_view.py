@@ -356,6 +356,8 @@ def main(sys_argv=None):
 
     sched_files = get_sched_files()
     mp_dat = get_mp_scheds(sched_files)
+
+    Path(opt.outdir).mkdir(exist_ok=True, parents=True)
     write_cycle_map(mp_dat, Path(opt.outdir) / "cycle_map.csv")
 
     entries = get_page_entries(start_time, mp_dat=mp_dat)
@@ -366,7 +368,6 @@ def main(sys_argv=None):
         entries=entries[::-1],
     )
 
-    Path(opt.outdir).mkdir(exist_ok=True, parents=True)
     outfile = Path(opt.outdir) / "index.html"
 
     with open(outfile, "w") as fh:
