@@ -59,6 +59,8 @@ def get_mp_scheds(files):
     """
 
     def extract_cycle_number(h1_text):
+        # Note that we've set the O optional for typos on the cycle 10 and 11 pages
+        # where the O is missing.
         match = re.search(r"AO?(\d+)", h1_text)
         if match:
             return match.group(1)
@@ -333,7 +335,7 @@ def get_page_entries(start_time, mp_dat=None):
 
 def write_cycle_map(mp_scheds, outfile):
     """
-    Write a CSV mapping of cycle_number to Week and Version.
+    Write a CSV mapping of load name to cycle number for the SOT MP schedules.
 
     Parameters
     ----------
@@ -343,6 +345,8 @@ def write_cycle_map(mp_scheds, outfile):
         Output file path.
     """
     out = mp_scheds["cycle_number", "Week", "Version"].copy()
+
+    # Filter these to just the entries where the version is a single letter.
     ok = [bool(re.match(r"^[A-Za-z]$", str(v))) for v in out["Version"]]
     out = out[ok]
     out["load_name"] = [w + v for w, v in zip(out["Week"], out["Version"])]
