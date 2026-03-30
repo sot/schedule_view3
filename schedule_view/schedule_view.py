@@ -343,6 +343,8 @@ def write_cycle_map(mp_scheds, outfile):
         Output file path.
     """
     out = mp_scheds["cycle_number", "Week", "Version"].copy()
+    ok = [bool(re.match(r"^[A-Za-z]$", str(v))) for v in out["Version"]]
+    out = out[ok]
     out["load_name"] = [w + v for w, v in zip(out["Week"], out["Version"])]
     out = out["cycle_number", "load_name"]
     out.write(outfile, format="csv", overwrite=True)
