@@ -59,7 +59,7 @@ def get_mp_scheds(files):
     """
 
     def extract_cycle_number(h1_text):
-        match = re.search(r"AO(\d+)", h1_text)
+        match = re.search(r"AO?(\d+)", h1_text)
         if match:
             return match.group(1)
         return None
