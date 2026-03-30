@@ -22,11 +22,9 @@ def get_options():
 
 def get_sched_files():
     """
-    Get a list of the files with SOT MP schedules.
+    Get a list of the SOT MP schedules files to map cycle pages to schedule loads.
 
-    This tool is only useful for viewing schedules in the RLTT era, so
-    there's a small optimization that this only fetches files from cycle 20
-    on. This will only succeed on HEAD systems with access to /proj/web-icxc.
+    This will only succeed on HEAD systems with access to /proj/web-icxc.
 
     Returns
     -------
@@ -36,7 +34,8 @@ def get_sched_files():
     """
     files = []
     top_level = "/proj/web-icxc/htdocs/mp/html/"
-    for glob in ["schedules_ao2?.html", "schedules.html"]:
+    # Read everything starting with AO3 when these were made into html tables
+    for glob in ["schedules_ao[3-9].html", "schedules_ao[1-9]?.html", "schedules.html"]:
         sched_files = list(Path(top_level).glob(glob))
         sched_files.sort()
         files.extend(sched_files)
@@ -183,7 +182,7 @@ def get_starcheck_url(week):
     return f"https://icxc.harvard.edu/mp/mplogs{week_str}starcheck.html"
 
 
-def get_page_entries(start_time):
+def get_page_entries(start_time, mp_dat=None):
     """
     Get the entries for the schedule view page.
 
@@ -191,6 +190,9 @@ def get_page_entries(start_time):
     ----------
     start_time : CxoTime or compatible str
         The start time for the list of cmds and events to be considered.
+    mp_dat : astropy.table.Table, optional
+        Pre-computed table from get_mp_scheds. If not provided, it will be
+        fetched automatically.
 
     Returns
     -------
@@ -220,8 +222,9 @@ def get_page_entries(start_time):
     events_flight = events_flight[ok]
 
     # Get SOT MP comments and weeks
-    sched_files = get_sched_files()
-    mp_dat = get_mp_scheds(sched_files)
+    if mp_dat is None:
+        sched_files = get_sched_files()
+        mp_dat = get_mp_scheds(sched_files)
 
     # For the set of run loads, add a dictionary for each to a list of entries for the
     # output table. Check if there are command events / nonload commands between rltt and
@@ -328,11 +331,32 @@ def get_page_entries(start_time):
     return entries
 
 
+def write_cycle_map(mp_scheds, outfile):
+    """
+    Write a CSV mapping of cycle_number to Week and Version.
+
+    Parameters
+    ----------
+    mp_scheds : astropy.table.Table
+        The table of SOT MP schedules from get_mp_scheds.
+    outfile : str or Path
+        Output file path.
+    """
+    out = mp_scheds["cycle_number", "Week", "Version"].copy()
+    out["load_name"] = [w + v for w, v in zip(out["Week"], out["Version"])]
+    out = out["cycle_number", "load_name"]
+    out.write(outfile, format="csv", overwrite=True)
+
+
 def main(sys_argv=None):
     opt = get_options().parse_args(sys_argv)
     start_time = opt.start or "2020:110"
 
-    entries = get_page_entries(start_time)
+    sched_files = get_sched_files()
+    mp_dat = get_mp_scheds(sched_files)
+    write_cycle_map(mp_dat, Path(opt.outdir) / "cycle_map.csv")
+
+    entries = get_page_entries(start_time, mp_dat=mp_dat)
 
     # Make HTML
     template = Template(open(TEMPLATE).read())
