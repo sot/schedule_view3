@@ -185,7 +185,7 @@ def get_starcheck_url(week):
     return f"https://icxc.harvard.edu/mp/mplogs{week_str}starcheck.html"
 
 
-def get_page_entries(start_time, mp_scheds=None):
+def get_page_entries(start_time, mp_scheds):
     """
     Get the entries for the schedule view page.
 
@@ -193,9 +193,8 @@ def get_page_entries(start_time, mp_scheds=None):
     ----------
     start_time : CxoTime or compatible str
         The start time for the list of cmds and events to be considered.
-    mp_dat : astropy.table.Table, optional
-        Pre-computed table from get_mp_scheds. If not provided, it will be
-        fetched automatically.
+    mp_scheds : astropy.table.Table
+        The table of SOT MP schedules from get_mp_scheds.
 
     Returns
     -------
@@ -223,11 +222,6 @@ def get_page_entries(start_time, mp_scheds=None):
     events_flight.rename_column("Date", "date")
     ok = events_flight["date"] > start_time
     events_flight = events_flight[ok]
-
-    # Get SOT MP comments and weeks
-    if mp_scheds is None:
-        sched_files = get_sched_files()
-        mp_scheds = get_mp_scheds(sched_files)
 
     # For the set of run loads, add a dictionary for each to a list of entries for the
     # output table. Check if there are command events / nonload commands between rltt and
@@ -361,7 +355,7 @@ def main(sys_argv=None):
     Path(opt.outdir).mkdir(exist_ok=True, parents=True)
     write_cycle_map(mp_scheds, Path(opt.outdir) / "cycle_map.json")
 
-    entries = get_page_entries(start_time, mp_scheds=mp_scheds)
+    entries = get_page_entries(start_time, mp_scheds)
 
     # Make HTML
     template = Template(open(TEMPLATE).read())
