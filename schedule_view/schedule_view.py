@@ -346,8 +346,7 @@ def write_cycle_map(mp_scheds, outfile):
         Output file path.
     """
     cycle_map = {
-        week: int(cycle)
-        for week, cycle in zip(mp_scheds["Week"], mp_scheds["cycle_number"])
+        mp_sched["Week"]: int(mp_sched["cycle_number"]) for mp_sched in mp_scheds
     }
     Path(outfile).write_text(json.dumps(cycle_map, indent=2))
 
