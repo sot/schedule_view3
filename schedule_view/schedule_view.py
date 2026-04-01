@@ -1,4 +1,5 @@
 import argparse
+import json
 import re
 from pathlib import Path
 
@@ -22,11 +23,9 @@ def get_options():
 
 def get_sched_files():
     """
-    Get a list of the files with SOT MP schedules.
+    Get a list of the SOT MP schedules files to map cycle pages to schedule loads.
 
-    This tool is only useful for viewing schedules in the RLTT era, so
-    there's a small optimization that this only fetches files from cycle 20
-    on. This will only succeed on HEAD systems with access to /proj/web-icxc.
+    This will only succeed on HEAD systems with access to /proj/web-icxc.
 
     Returns
     -------
@@ -36,7 +35,8 @@ def get_sched_files():
     """
     files = []
     top_level = "/proj/web-icxc/htdocs/mp/html/"
-    for glob in ["schedules_ao2?.html", "schedules.html"]:
+    # Read everything starting with AO3 when these were made into html tables
+    for glob in ["schedules_ao[3-9].html", "schedules_ao[1-9]?.html", "schedules.html"]:
         sched_files = list(Path(top_level).glob(glob))
         sched_files.sort()
         files.extend(sched_files)
@@ -60,7 +60,9 @@ def get_mp_scheds(files):
     """
 
     def extract_cycle_number(h1_text):
-        match = re.search(r"AO(\d+)", h1_text)
+        # Note that we've set the O optional for typos on the cycle 10 and 11 pages
+        # where the O is missing.
+        match = re.search(r"AO?(\d+)", h1_text)
         if match:
             return match.group(1)
         return None
@@ -183,7 +185,7 @@ def get_starcheck_url(week):
     return f"https://icxc.harvard.edu/mp/mplogs{week_str}starcheck.html"
 
 
-def get_page_entries(start_time):
+def get_page_entries(start_time, mp_scheds):
     """
     Get the entries for the schedule view page.
 
@@ -191,6 +193,8 @@ def get_page_entries(start_time):
     ----------
     start_time : CxoTime or compatible str
         The start time for the list of cmds and events to be considered.
+    mp_scheds : astropy.table.Table
+        The table of SOT MP schedules from get_mp_scheds.
 
     Returns
     -------
@@ -219,10 +223,6 @@ def get_page_entries(start_time):
     ok = events_flight["date"] > start_time
     events_flight = events_flight[ok]
 
-    # Get SOT MP comments and weeks
-    sched_files = get_sched_files()
-    mp_dat = get_mp_scheds(sched_files)
-
     # For the set of run loads, add a dictionary for each to a list of entries for the
     # output table. Check if there are command events / nonload commands between rltt and
     # schedule_stop to get a quick idea about if the schedule was interrupted, and if so
@@ -230,10 +230,10 @@ def get_page_entries(start_time):
     entries = []
     for week in run_loads:
         entry = {"products": week}
-        mp_comment = get_mp_comment(week, mp_dat)
+        mp_comment = get_mp_comment(week, mp_scheds)
         if mp_comment is not None:
             entry["mp_comment"] = mp_comment
-        entry["cycle"] = get_mp_cycle(week, mp_dat)
+        entry["cycle"] = get_mp_cycle(week, mp_scheds)
         cmds_week = cmds[cmds["source"] == week]
         rltt_cmd = cmds_week.get_rltt_cmd()
         if rltt_cmd is None:
@@ -287,10 +287,10 @@ def get_page_entries(start_time):
                     "products": entry["Params"],
                     "Event": entry["Event"],
                     "Comment": entry["Comment"],
-                    "cycle": get_mp_cycle(entry["Params"], mp_dat),
+                    "cycle": get_mp_cycle(entry["Params"], mp_scheds),
                 }
             )
-            mp_comment = get_mp_comment(entry["Params"], mp_dat)
+            mp_comment = get_mp_comment(entry["Params"], mp_scheds)
             if mp_comment is not None:
                 week_entry["mp_comment"] = mp_comment
             if not has_entry:
@@ -328,11 +328,34 @@ def get_page_entries(start_time):
     return entries
 
 
+def write_cycle_map(mp_scheds, outfile):
+    """
+    Write a JSON mapping of week name to cycle number for the SOT MP schedules.
+
+    Parameters
+    ----------
+    mp_scheds : astropy.table.Table
+        The table of SOT MP schedules from get_mp_scheds.
+    outfile : str or Path
+        Output file path.
+    """
+    cycle_map = {
+        mp_sched["Week"]: int(mp_sched["cycle_number"]) for mp_sched in mp_scheds
+    }
+    Path(outfile).write_text(json.dumps(cycle_map, indent=2))
+
+
 def main(sys_argv=None):
     opt = get_options().parse_args(sys_argv)
     start_time = opt.start or "2020:110"
 
-    entries = get_page_entries(start_time)
+    sched_files = get_sched_files()
+    mp_scheds = get_mp_scheds(sched_files)
+
+    Path(opt.outdir).mkdir(exist_ok=True, parents=True)
+    write_cycle_map(mp_scheds, Path(opt.outdir) / "cycle_map.json")
+
+    entries = get_page_entries(start_time, mp_scheds)
 
     # Make HTML
     template = Template(open(TEMPLATE).read())
@@ -340,7 +363,6 @@ def main(sys_argv=None):
         entries=entries[::-1],
     )
 
-    Path(opt.outdir).mkdir(exist_ok=True, parents=True)
     outfile = Path(opt.outdir) / "index.html"
 
     with open(outfile, "w") as fh:
