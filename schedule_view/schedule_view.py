@@ -336,7 +336,7 @@ def get_page_entries(start_time, mp_scheds=None):
 
 def write_cycle_map(mp_scheds, outfile):
     """
-    Write a CSV mapping of load name to cycle number for the SOT MP schedules.
+    Write a JSON mapping of week name to cycle number for the SOT MP schedules.
 
     Parameters
     ----------
@@ -345,7 +345,10 @@ def write_cycle_map(mp_scheds, outfile):
     outfile : str or Path
         Output file path.
     """
-    cycle_map = dict(zip(mp_scheds["Week"], mp_scheds["cycle_number"].astype(int)))
+    cycle_map = {
+        week: int(cycle)
+        for week, cycle in zip(mp_scheds["Week"], mp_scheds["cycle_number"])
+    }
     Path(outfile).write_text(json.dumps(cycle_map, indent=2))
 
 
