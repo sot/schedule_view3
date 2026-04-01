@@ -1,4 +1,5 @@
 import argparse
+import json
 import re
 from pathlib import Path
 
@@ -184,7 +185,7 @@ def get_starcheck_url(week):
     return f"https://icxc.harvard.edu/mp/mplogs{week_str}starcheck.html"
 
 
-def get_page_entries(start_time, mp_dat=None):
+def get_page_entries(start_time, mp_scheds=None):
     """
     Get the entries for the schedule view page.
 
@@ -224,9 +225,9 @@ def get_page_entries(start_time, mp_dat=None):
     events_flight = events_flight[ok]
 
     # Get SOT MP comments and weeks
-    if mp_dat is None:
+    if mp_scheds is None:
         sched_files = get_sched_files()
-        mp_dat = get_mp_scheds(sched_files)
+        mp_scheds = get_mp_scheds(sched_files)
 
     # For the set of run loads, add a dictionary for each to a list of entries for the
     # output table. Check if there are command events / nonload commands between rltt and
@@ -235,10 +236,10 @@ def get_page_entries(start_time, mp_dat=None):
     entries = []
     for week in run_loads:
         entry = {"products": week}
-        mp_comment = get_mp_comment(week, mp_dat)
+        mp_comment = get_mp_comment(week, mp_scheds)
         if mp_comment is not None:
             entry["mp_comment"] = mp_comment
-        entry["cycle"] = get_mp_cycle(week, mp_dat)
+        entry["cycle"] = get_mp_cycle(week, mp_scheds)
         cmds_week = cmds[cmds["source"] == week]
         rltt_cmd = cmds_week.get_rltt_cmd()
         if rltt_cmd is None:
@@ -292,10 +293,10 @@ def get_page_entries(start_time, mp_dat=None):
                     "products": entry["Params"],
                     "Event": entry["Event"],
                     "Comment": entry["Comment"],
-                    "cycle": get_mp_cycle(entry["Params"], mp_dat),
+                    "cycle": get_mp_cycle(entry["Params"], mp_scheds),
                 }
             )
-            mp_comment = get_mp_comment(entry["Params"], mp_dat)
+            mp_comment = get_mp_comment(entry["Params"], mp_scheds)
             if mp_comment is not None:
                 week_entry["mp_comment"] = mp_comment
             if not has_entry:
@@ -344,14 +345,14 @@ def write_cycle_map(mp_scheds, outfile):
     outfile : str or Path
         Output file path.
     """
-    out = mp_scheds["cycle_number", "Week", "Version"].copy()
+    out = mp_scheds["Week", "cycle_number"].copy()
 
-    # Filter these to just the entries where the version is a single letter.
-    ok = [bool(re.match(r"^[A-Za-z]$", str(v))) for v in out["Version"]]
-    out = out[ok]
-    out["load_name"] = [w + v for w, v in zip(out["Week"], out["Version"])]
-    out = out["load_name", "cycle_number"]
-    out.write(outfile, format="csv", overwrite=True)
+    # Filter these to just the unique week names
+    _, idx = np.unique(out["Week"], return_index=True)
+    out = out[idx]
+
+    cycle_map = dict(zip(out["Week"], out["cycle_number"]))
+    Path(outfile).write_text(json.dumps(cycle_map, indent=2))
 
 
 def main(sys_argv=None):
@@ -359,12 +360,12 @@ def main(sys_argv=None):
     start_time = opt.start or "2020:110"
 
     sched_files = get_sched_files()
-    mp_dat = get_mp_scheds(sched_files)
+    mp_scheds = get_mp_scheds(sched_files)
 
     Path(opt.outdir).mkdir(exist_ok=True, parents=True)
-    write_cycle_map(mp_dat, Path(opt.outdir) / "cycle_map.csv")
+    write_cycle_map(mp_scheds, Path(opt.outdir) / "cycle_map.json")
 
-    entries = get_page_entries(start_time, mp_dat=mp_dat)
+    entries = get_page_entries(start_time, mp_scheds=mp_scheds)
 
     # Make HTML
     template = Template(open(TEMPLATE).read())
