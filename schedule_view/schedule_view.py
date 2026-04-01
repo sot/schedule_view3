@@ -345,13 +345,7 @@ def write_cycle_map(mp_scheds, outfile):
     outfile : str or Path
         Output file path.
     """
-    out = mp_scheds["Week", "cycle_number"].copy()
-
-    # Filter these to just the unique week names
-    _, idx = np.unique(out["Week"], return_index=True)
-    out = out[idx]
-
-    cycle_map = dict(zip(out["Week"], out["cycle_number"]))
+    cycle_map = dict(zip(mp_scheds["Week"], mp_scheds["cycle_number"].astype(int)))
     Path(outfile).write_text(json.dumps(cycle_map, indent=2))
 
 
